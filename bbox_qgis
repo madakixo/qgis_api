@@ -1,0 +1,65 @@
+from qgis.core import QgsProject, QgsVectorLayer, QgsFeature, QgsGeometry, QgsRectangle, QgsField, QgsVectorFileWriter
+from qgis.PyQt.QtCore import QVariant
+
+def add_bounding_boxes():
+    project = QgsProject.instance()
+    
+    # Function to add bounding box for a given layer
+    def add_bbox_for_layer(layer):
+        extent = layer.extent()
+        bbox = QgsRectangle(extent)
+        
+        # Create a new memory layer for the bounding box
+        bbox_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", f"{layer.name()}_bbox", "memory")
+        pr = bbox_layer.dataProvider()
+        pr.addAttributes([QgsField("layer_name", QVariant.String)])
+        bbox_layer.updateFields()
+        
+        # Create a feature with the bounding box
+        feat = QgsFeature()
+        feat.setGeometry(QgsGeometry.fromRect(bbox))
+        feat.setAttributes([layer.name()])
+        pr.addFeatures([feat])
+        
+        # Add the bbox layer to the project
+        QgsProject.instance().addMapLayer(bbox_layer)
+        
+        # Optionally, save this new layer to a shapefile
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = "ESRI Shapefile"
+        options.fileEncoding = "UTF-8"
+        
+        QgsVectorFileWriter.writeAsVectorFormat(bbox_layer, f"{layer.name()}_bbox.shp", options)
+
+    # Get all layers in the project
+    layers = project.mapLayers().values()
+    
+    # Iterate through all layers
+    for layer in layers:
+        if layer.type() == QgsMapLayer.RasterLayer or layer.type() == QgsMapLayer.VectorLayer:
+            add_bbox_for_layer(layer)
+
+# Call the function to add bounding boxes
+add_bounding_boxes()
+
+
+
+""""
+
+Explanation:
+Layer Type Check: The script checks if the layer is either a raster or vector layer before proceeding.
+Extent Calculation: It calculates the extent (bounding box) of the layer.
+New Layer Creation: Creates a new memory layer to hold the bounding box polygon. 
+Here, we use EPSG:4326 (WGS84) for simplicity; you might want to match this to your project's CRS.
+Feature Creation: A feature (polygon) is created using the extent of the original layer.
+Layer Addition: The new bounding box layer is added to the project.
+Saving: Optionally saves the bounding box as a shapefile. 
+The path for the output should be adjusted or handled more dynamically if needed.
+
+Instructions:
+Open QGIS and load the raster and vector layers you want to add bounding boxes to.
+Open the Python Console (Plugins > Python Console).
+Copy and Paste this script into the console.
+Run the script.
+
+"""
