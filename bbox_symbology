@@ -1,0 +1,75 @@
+from qgis.core import QgsProject, QgsVectorLayer, QgsFeature, QgsGeometry, QgsRectangle, QgsField, QgsVectorFileWriter, QgsSymbol, QgsSimpleFillSymbolLayer
+from qgis.PyQt.QtCore import QVariant
+from qgis.PyQt.QtGui import QColor
+
+def add_bounding_boxes():
+    project = QgsProject.instance()
+    
+    def add_bbox_for_layer(layer):
+        extent = layer.extent()
+        bbox = QgsRectangle(extent)
+        
+        # Create a new memory layer for the bounding box
+        bbox_layer = QgsVectorLayer("Polygon?crs=EPSG:4326", f"{layer.name()}_bbox", "memory")
+        pr = bbox_layer.dataProvider()
+        pr.addAttributes([QgsField("layer_name", QVariant.String)])
+        bbox_layer.updateFields()
+        
+        # Create a feature with the bounding box
+        feat = QgsFeature()
+        feat.setGeometry(QgsGeometry.fromRect(bbox))
+        feat.setAttributes([layer.name()])
+        pr.addFeatures([feat])
+        
+        # Add the bbox layer to the project
+        QgsProject.instance().addMapLayer(bbox_layer)
+        
+        # Style the bounding box layer
+        # Create a simple fill symbol
+        symbol = QgsSymbol.defaultSymbol(bbox_layer.geometryType())
+        symbol_layer = QgsSimpleFillSymbolLayer.create({'color': '255,0,0,100', 'outline_color': '0,0,0,255', 'outline_width': '1'})
+        symbol.changeSymbolLayer(0, symbol_layer)
+        
+        # Apply the style to the layer
+        bbox_layer.renderer().setSymbol(symbol)
+        bbox_layer.triggerRepaint()
+        
+        # Optionally, save this new layer to a shapefile
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = "ESRI Shapefile"
+        options.fileEncoding = "UTF-8"
+        
+        QgsVectorFileWriter.writeAsVectorFormat(bbox_layer, f"{layer.name()}_bbox.shp", options)
+
+    # Get all layers in the project
+    layers = project.mapLayers().values()
+    
+    # Iterate through all layers
+    for layer in layers:
+        if layer.type() == QgsMapLayer.RasterLayer or layer.type() == QgsMapLayer.VectorLayer:
+            add_bbox_for_layer(layer)
+
+# Call the function to add bounding boxes
+add_bounding_boxes()
+
+
+
+
+
+"""
+Explanation of Styling:
+Symbol Creation: We create a QgsSimpleFillSymbolLayer with specific parameters:
+color: Sets the fill color to semi-transparent red (255,0,0,100 where 100 is the alpha value for 40% opacity).
+outline_color: Sets the outline to black with full opacity (0,0,0,255).
+outline_width: Sets the outline width to 1.
+Symbol Application: The new symbol is applied to the layer's renderer, which changes how the bounding box is displayed.
+
+Post-Script Styling:
+If you prefer to style the bounding boxes manually after running the script:
+
+Open Layer Styling - Right-click on the newly created bounding box layer in the Layers panel, then choose Properties > Symbology.
+Choose Symbol Style - Under Symbology, you can:
+Select 'Simple fill' for the symbol type.
+Adjust the fill color to something semi-transparent for visibility without overpowering the map.
+Set the outline color and width to make the boundaries clear.
+"""
